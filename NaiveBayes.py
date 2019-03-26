@@ -203,6 +203,26 @@ class Learner:
     def getClassificationProbability(self, classification):
         return self.classProbability[classification]
 
+    def predict(self, data):
+        possibilities = self.getProbabilityGivenData(data)
+        classification = ""
+        currentProbability = 0
+
+        for (k, v) in possibilities:
+            if v > currentProbability:
+                classification = k
+                currentProbability = v
+
+        return classification
+
+    def getProbabilityGivenData(self, data):
+        possibilities = {}
+        for c in self.classProbability:
+            possibilities[c] = 1
+            for i in range(len(data)):
+                possibilities[c] *= self.getProbabilityIf(c, i, data[i])
+            possibilities[c] *= self.getClassificationProbability(c)
+
     def calculateProbabilities(self, attribute):
         dict = {}
         total = attribute.getTotalValues()
@@ -244,8 +264,7 @@ def train(classifications):
 # %%
 # This function should predict the class for an instance or a set of instances, based on a trained model
 def predict(attributes, learner):
-    
-    return
+    return learner.predict(attributes)
 
 
 # %%
@@ -271,8 +290,11 @@ for (dirpath, dirnames, filenames) in os.walk(path):
             files.append(dirpath + filename)
 
 f = "test.txt"
+data = []
 for fp in files:
     classifications = preprocess(fp)
+    learner = train(classifications)
+
     print(fp)
     classifications.printClassifications()
 
