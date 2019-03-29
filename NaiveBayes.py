@@ -15,16 +15,26 @@
 #  You may change the prototypes of these functions, and you may write other functions, according to your requirements. We would appreciate it if the required functions were prominent/easy to find.
 
 # %%
+import os
+# %%
 from fractions import Fraction
 
 
 class Attribute:
+    '''
+    Attribute represents a feature of a dataset and contains the types of
+    values and the frequency of it
+    '''
 
     def __init__(self):
+        # stores types of values
         self.valueCount = 0
+
+        # stores types of values and frequency 
         self.values = {}
 
     def addValue(self, value):
+        # adding new values to dictionary
         if value in self.values:
             self.values[value] += 1
         else:
@@ -32,104 +42,122 @@ class Attribute:
             self.valueCount += 1
 
     def addZeroValue(self, value):
+        # initializing values qith zero frequency
         if value not in self.values:
             self.values[value] = 0
 
     def getValues(self):
+        # returning all types of values
         return self.values.keys()
 
     def getFrequency(self, attr):
+        # return frequency of a value
         return self.values[attr]
 
     def getValFreq(self):
+        # return the dictionary
         return self.values
 
     def getNumOfValues(self):
+        # return number of types of values
         return self.valueCount
 
     def getTotalValues(self):
+        # get total of frequency from all values
         total = 0
         for i in self.values:
             total += self.values[i]
-        # print("ALSO HERE: " + str(self.values))
         return total
 
 
 class Classifications:
+    '''
+    Classifications hold the types of classifications and stores attributes
+    based on the classification. It also holds the frequency of the
+    classification and the whole attributes data.
+    '''
 
     def __init__(self, number, totalData):
+        # the number of attributes of the datasets
         self.numberOfAttributes = number
+
+        # stores types of classifications and the corresponding attributes data
         self.classifications = {}
+
+        # stores the total number of data in the datasets
         self.totalNumber = 0
+
+        # stores the attributes data without binding it to a classification
         self.globalAttributes = []
+
+        # initialize global attributes
         self.initGlobalAttributes(number, totalData)
+
+        # stores the frequency of each classifcation
         self.size = {}
 
     def initGlobalAttributes(self, number, totalData):
+        # create Attribute objects
         for _ in range(self.numberOfAttributes):
             self.globalAttributes.append(Attribute())
 
+        # initialize all types of all attributes using all data
         for data in totalData:
             for i in range(len(data) - 1):
                 self.globalAttributes[i].addZeroValue(data[i])
 
     def addNewClassification(self, classification):
+        # adding new types of classification
         self.classifications[classification] = []
-        self.size[classification] = 1
+        self.size[classification] = 0
         for _ in range(self.numberOfAttributes):
             self.classifications[classification].append(Attribute())
 
     def addNewDatas(self, datas, classification):
+        # adding new attribute data to each classification
         if classification not in self.classifications:
             self.addNewClassification(classification)
 
+        # add total number of data and frequency of each classification
         self.totalNumber += 1
         self.size[classification] += 1
         for i in range(self.numberOfAttributes):
             cleanedData = datas[i].rstrip('\n')
+            # ignoring missing data
             if cleanedData == '?':
                 continue
+            
+            # adding frequency of the attributes to global and based on 
+            # classification
             self.globalAttributes[i].addValue(cleanedData)
             self.classifications[classification][i].addValue(cleanedData)
 
-    def getGlobalAttributeProbability(self, data):
-        probability = 1
-        for i in range(len(data)):
-            if data[i] == '?':
-                continue
-
-            attr = self.globalAttributes[i]
-            freq = attr.getFrequency(data[i])
-            if freq == 0:
-                continue
-            probability *= Fraction(attr.getFrequency(
-                data[i]), attr.getTotalValues())
-        return probability
-
     def getClassifications(self):
+        # get all types of classifications
         return self.classifications
 
     def getTotalNumber(self):
+        # get total number of data
         return self.totalNumber
 
     def getTotalNumberOfClassification(self, classification):
-        c = self.classifications[classification]
-        total = 0
-        for i in c:
-            total += i.getTotalValues()
-
-        return total
+        # return the frequency of a classification
+        return self.size[classification]
 
     def getGlobalAttributeData(self, index):
+        # return the global attribute data 
         return self.globalAttributes[index]
 
     def getClassificationTypes(self):
+        # return all types of classifications
         return self.classifications.keys()
 
     def getAttributeDataIf(self, classification, index):
+        # return attribute data corresponding to a classification
         return self.classifications[classification][index]
 
     def getNumberOfAttributes(self):
+        # get number of attributes
         return self.numberOfAttributes
 
     def printClassifications(self):
@@ -162,153 +190,150 @@ class Classifications:
         file.close()
 
     def fixClassifications(self):
+        # adding zero frequency to a type of an attribute should during
+        # processing, a type of an attribute is not found for a
+        # classification
         for i in range(self.numberOfAttributes):
             types = self.globalAttributes[i].getValues()
             for c in self.classifications:
                 for t in types:
-                    self.getAttributeDataIf(c, i).addZeroValue(t)
+                    self.classifications[c][i].addZeroValue(t)
 
 
 # %%
 # This function should open a data file in csv, and transform it into a usable format
 # def preprocess(filepath):
-#     f = open(filepath, 'r')
-#     classifications = None
-#     attr_count = 0
-
-#     for line in f.readlines():
-#         vals = line.split(',')
-
-#         if attr_count == 0:
-#             attr_count = len(vals)
-#             classifications = Classifications(attr_count - 1)
-
-#         if len(vals) != attr_count:
-#             raise Exception(
-#                 'All data should have the same number of attributes. The line is: {}'.format(line))
-
-#         classification = vals[attr_count - 1].rstrip('\n')
-#         classifications.addNewDatas(vals[:-1], classification)
-
-#     f.close()
-#     classifications.fixClassifications()
-#     return classifications
-
-
 def preprocess(datas, totalData):
     classifications = None
-    attr_count = 0
+    attrCount = 0
 
     for data in datas:
-        if attr_count == 0:
-            attr_count = len(data)
-            classifications = Classifications(attr_count - 1, totalData)
+        # initializing classification
+        if attrCount == 0:
+            attrCount = len(data)
+            classifications = Classifications(attrCount - 1, totalData)
 
-        if len(data) != attr_count:
+        if len(data) != attrCount:
             raise Exception(
                 'All data should have the same number of attributes. The line is: {}'.format(data))
 
-        classification = data[attr_count - 1].rstrip('\n')
+        # adding new data
+        classification = data[attrCount - 1].rstrip('\n')
         classifications.addNewDatas(data[:-1], classification)
 
+    # fixing missing values of the classification
     classifications.fixClassifications()
     return classifications
 
 
 # %%
 class Learner:
+    '''
+    The Learner class contains the necessary probabilities and all the
+    calculations required to implement a Naive Bayes Classifier
+    '''
 
     def __init__(self):
-        # Map<classification, Fraction>
+        # Stores the probability of a classification
         self.classProbability = {}
 
+        # Stores the probability of each types of attribute given a type of
+        # classification
         # Map<classification, [numOfAttr]List<Map<attributeType, Fraction>>>
         self.attrProbabilityIf = {}
 
     def learn(self, classification):
+        # Calculating the probability necessary for the classifier
         for t in classification.getClassificationTypes():
+            # probability of a classification
             self.classProbability[t] = Fraction(
                 classification.getTotalNumberOfClassification(t),
                 classification.getTotalNumber())
 
+            # calculate attribute probability for a given classification
             data = []
             for i in range(classification.getNumberOfAttributes()):
                 attr = classification.getAttributeDataIf(t, i)
                 data.append(self.calculateProbabilities(attr))
 
             self.attrProbabilityIf[t] = data
-        # print(self.attrProbabilityIf)
-        # print(self.classProbability)
-        # print(self.)
-    # def printProbabilities(self):
-    #     for (c, p) in self.classProbability:
-    #         print(str(c) + ": " + str(p))
-
-    #     for (c, a) in self.attrProbabilityIf:
 
     def getProbabilityIf(self, classification, attr, val):
-        #         print("HERE")
-        #         print(self.attrProbabilityIf)
         # print("Classification: ", classification)
         # print("Attribute: ", attr)
         # print("Type: ", val)
+
+        # returning a neutral value for a missing values
         if val == '?':
             return 1
+        
+        # returning a probability given certain classification for a 
+        # certain attribute
         return self.attrProbabilityIf[classification][attr][val]
 
     def getClassificationProbability(self, classification):
+        # get probability for a classification
         return self.classProbability[classification]
 
     def predict(self, data, classification):
+        # predict a classification given certain datas
+
+        # get all probabilities given a classification
         possibilities = self.getProbabilityGivenData(data)
-        attributesProbability = classification.getGlobalAttributeProbability(
-            data)
         classification = ""
         currentProbability = 0
 
+        # find a classification with the highest probability
         for (k, v) in possibilities.items():
-            p = Fraction(v, attributesProbability)
-            if p > currentProbability:
+            if v > currentProbability:
                 classification = k
-                currentProbability = p
+                currentProbability = v
 
         return classification
 
     def getProbabilityGivenData(self, data):
+        # iterate through the data and calculate probability
         possibilities = {}
-        for c in self.classProbability:
+        for c in self.classProbability.keys():
             possibilities[c] = 1
+
+            # multiplying probabilities
             for i in range(len(data)):
                 possibilities[c] *= self.getProbabilityIf(c, i, data[i])
             possibilities[c] *= self.getClassificationProbability(c)
-        # print(possibilities)
+
         return possibilities
 
     def calculateProbabilities(self, attribute):
+        # calculate probabilities for each attribute given a classification
         dict = {}
         total = attribute.getTotalValues()
         flag = False
+
+        # calculating the frequency and total frequency of attributes
         for a in attribute.getValues():
             value = attribute.getFrequency(a)
             dict[a] = (value, total)
             if value == 0 and total != 0:
                 flag = True
 
+        # should there be a zero frequency, do probabilistic smoothing
         if flag:
             dict = self.probabilisticSmoothing(
                 dict, attribute.getNumOfValues())
 
-        # print("HERE: " + str(dict))
+        # converting the tuples into Fraction
         for (k, v) in dict.items():
             freq, totalFreq = v
             if totalFreq == 0:
-                dict[k] = Fraction(freq, 1)
+                dict[k] = 0
                 continue
             dict[k] = Fraction(freq, totalFreq)
 
         return dict
 
     def probabilisticSmoothing(self, probabilities, numOfValues):
+        # probabilistic smoothing to handle zero frequency
         dict = {}
         for (k, v) in probabilities.items():
             freq, totalFreq = v
@@ -329,6 +354,7 @@ def train(classifications):
 # %%
 # This function should predict the class for an instance or a set of instances, based on a trained model
 def predict(attributes, learner, classifications):
+    # calculate prediction based on the given attributes
     return learner.predict(attributes, classifications)
 
 
@@ -339,14 +365,11 @@ def evaluate(dataTest, dataTrain):
     total = len(dataTest)
 
     classifications = preprocess(dataTrain, dataTest + dataTrain)
-    # classifications.printClassifications()
     classifier = train(classifications)
     for data in dataTest:
         classLabel = predict(data[:-1], classifier, classifications)
-        # print("Guess: {} Real: {} Judge: {}".format(classLabel, data[-1], classLabel == data[-1]))
         score += 1 if classLabel == data[-1].rstrip('\n') else 0
 
-    # print("Score: {} Total: {}".format(score, total))
     return Fraction(score, total)
 
 
@@ -359,7 +382,7 @@ def info_gain():
 
 # %%
 import os
-
+import random
 
 def splitFiles(trainPercentage, filepath):
     f = open(filepath, 'r')
@@ -371,11 +394,13 @@ def splitFiles(trainPercentage, filepath):
 
     f.close()
     trainLength = int(length * trainPercentage)
+    
+    random.shuffle(files)
 
     return files[:trainLength], files[trainLength:]
 
 
-path = './2019S1-proj1-data_dos/'
+path = 'C:\\Users\\novan\\OneDrive\\Desktop\\CODE\\NaiveBayesPrediction\\2019S1-proj1-data_dos\\'
 files = []
 for (dirpath, dirnames, filenames) in os.walk(path):
     for filename in filenames:
@@ -383,9 +408,9 @@ for (dirpath, dirnames, filenames) in os.walk(path):
             files.append(dirpath + filename)
 
 f = "test.txt"
-trainPercentage = 0.5
+trainPercentage = 0.8
 data = []
-# files.append(path + 'anneal.csv')
+print(len(files))
 for fp in files:
     trainData, testData = splitFiles(trainPercentage, fp)
     # classifications = preprocess(trainData)
@@ -393,6 +418,8 @@ for fp in files:
     # classifications.printClassifications()
 
     print("Score: " + str(float(evaluate(testData, trainData))))
+
+# primary-tumor.csv has its class ordered, that's why files are shuffled
 
 # %% [markdown]
 #  Questions (you may respond in a cell or cells below):
