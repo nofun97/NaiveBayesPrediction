@@ -5,7 +5,7 @@
 #  ## Project 1: Gaining Information about Naive Bayes
 #  -----
 #  ###### Student Name(s): Novan
-#  ###### Python version: 3.7
+#  ###### Python version: 3.6
 #  ###### Submission deadline: 1pm, Fri 5 Apr 2019
 # %% [markdown]
 #  This iPython notebook is a template which you may use for your Project 1 submission. (You are not required to use it; in particular, there is no need to use iPython if you do not like it.)
@@ -15,11 +15,13 @@
 #  You may change the prototypes of these functions, and you may write other functions, according to your requirements. We would appreciate it if the required functions were prominent/easy to find.
 
 # %%
+# necessary imports
 import os
-# %%
+import random
 from fractions import Fraction
+from math import log
 
-
+# %%
 class Attribute:
     '''
     Attribute represents a feature of a dataset and contains the types of
@@ -30,10 +32,12 @@ class Attribute:
         # stores types of values
         self.valueCount = 0
 
-        # stores types of values and frequency 
+        # stores types of values and frequency
         self.values = {}
 
     def addValue(self, value):
+        if value == '?':
+            return
         # adding new values to dictionary
         if value in self.values:
             self.values[value] += 1
@@ -43,7 +47,7 @@ class Attribute:
 
     def addZeroValue(self, value):
         # initializing values qith zero frequency
-        if value not in self.values:
+        if value not in self.values and value != '?':
             self.values[value] = 0
 
     def getValues(self):
@@ -52,6 +56,8 @@ class Attribute:
 
     def getFrequency(self, attr):
         # return frequency of a value
+        if attr not in self.values:
+            return 0
         return self.values[attr]
 
     def getValFreq(self):
@@ -107,6 +113,8 @@ class Classifications:
                 self.globalAttributes[i].addZeroValue(data[i])
 
     def addNewClassification(self, classification):
+        if classification == '?':
+            return
         # adding new types of classification
         self.classifications[classification] = []
         self.size[classification] = 0
@@ -114,20 +122,23 @@ class Classifications:
             self.classifications[classification].append(Attribute())
 
     def addNewDatas(self, datas, classification):
+        if classification == '?':
+            return
         # adding new attribute data to each classification
         if classification not in self.classifications:
             self.addNewClassification(classification)
 
         # add total number of data and frequency of each classification
-        self.totalNumber += 1
+
+        self.totalNumber += 1 if classification != '?' else 0
         self.size[classification] += 1
         for i in range(self.numberOfAttributes):
             cleanedData = datas[i].rstrip('\n')
             # ignoring missing data
             if cleanedData == '?':
                 continue
-            
-            # adding frequency of the attributes to global and based on 
+
+            # adding frequency of the attributes to global and based on
             # classification
             self.globalAttributes[i].addValue(cleanedData)
             self.classifications[classification][i].addValue(cleanedData)
@@ -145,7 +156,7 @@ class Classifications:
         return self.size[classification]
 
     def getGlobalAttributeData(self, index):
-        # return the global attribute data 
+        # return the global attribute data
         return self.globalAttributes[index]
 
     def getClassificationTypes(self):
@@ -160,35 +171,6 @@ class Classifications:
         # get number of attributes
         return self.numberOfAttributes
 
-    def printClassifications(self):
-        print("Global values")
-        for i in self.globalAttributes:
-            print(i.getValFreq())
-
-        print('\n')
-        for c in self.classifications:
-            print("Classification: " + c)
-            for a in self.classifications[c]:
-                print(a.getValFreq())
-
-            print('\n')
-
-    def writeClassifications(self, filename):
-        file = open(filename, "w+")
-        file.write("Global values\n")
-        for i in self.globalAttributes:
-            file.write(str(i.getValFreq()) + '\n')
-
-        file.write('\n')
-        for c in self.classifications:
-            file.write("Classification: " + c + '\n')
-            for a in self.classifications[c]:
-                file.write(str(a.getValFreq()) + '\n')
-
-            file.write('\n')
-
-        file.close()
-
     def fixClassifications(self):
         # adding zero frequency to a type of an attribute should during
         # processing, a type of an attribute is not found for a
@@ -199,10 +181,69 @@ class Classifications:
                 for t in types:
                     self.classifications[c][i].addZeroValue(t)
 
+    def calculateClassEntropy(self):
+        entropy = 0
+        for c in self.getClassificationTypes():
+            # using frequency of a class divided by total number of data
+            freqRatio = Fraction(self.size[c], self.getTotalNumber())
+            entropy += freqRatio * log(freqRatio, 2)
+        return -1 * entropy
+
+    def calculateTotalFreqAttrType(self, attrIndex, attrType):
+        # Calculating total frequency of a certain attribute value
+        total = 0
+
+        # adding all the frequency of an attribute type from each class
+        for c in self.getClassificationTypes():
+            attr = self.getAttributeDataIf(c, attrIndex)
+            total += attr.getFrequency(attrType)
+
+        return total
+
+    def calculateAttrValueEntropy(self, attrIndex, attrType):
+        entropy = 0
+        totalAttrType = self.calculateTotalFreqAttrType(attrIndex, attrType)
+        if totalAttrType == 0:
+            return 0
+
+        for c in self.getClassificationTypes():
+            freq = self.getAttributeDataIf(c, attrIndex).getFrequency(attrType)
+            if freq == 0:
+                continue
+            valFreqRatio = Fraction(freq, totalAttrType)
+            entropy += valFreqRatio * log(valFreqRatio, 2)
+        
+        return -1 * entropy
+
+    def calculateMeanInfo(self, attrIndex):
+        globalAttr = self.getGlobalAttributeData(attrIndex)
+
+        totalFreq = self.getTotalNumber()
+        meanInfo = 0
+        for t in globalAttr.getValues():
+            freq = self.calculateTotalFreqAttrType(attrIndex, t)
+            freqRatio = Fraction(freq, totalFreq)
+            entropy = self.calculateAttrValueEntropy(
+                attrIndex, t)
+            meanInfo += freqRatio * entropy
+
+        return meanInfo
+
+    def calculateInfoGain(self):
+        infoGain = []
+        classEntropy = self.calculateClassEntropy()
+        # print("Class Entropy: ", classEntropy)
+        for i in range(self.getNumberOfAttributes()):
+            mi = self.calculateMeanInfo(i)
+            # print("Mean Info: ", mi)
+            infoGain.append(classEntropy - mi)
+        return infoGain
 
 # %%
 # This function should open a data file in csv, and transform it into a usable format
 # def preprocess(filepath):
+
+
 def preprocess(datas, totalData):
     classifications = None
     attrCount = 0
@@ -218,7 +259,7 @@ def preprocess(datas, totalData):
                 'All data should have the same number of attributes. The line is: {}'.format(data))
 
         # adding new data
-        classification = data[attrCount - 1].rstrip('\n')
+        classification = data[-1].rstrip('\n')
         classifications.addNewDatas(data[:-1], classification)
 
     # fixing missing values of the classification
@@ -266,8 +307,8 @@ class Learner:
         # returning a neutral value for a missing values
         if val == '?':
             return 1
-        
-        # returning a probability given certain classification for a 
+
+        # returning a probability given certain classification for a
         # certain attribute
         return self.attrProbabilityIf[classification][attr][val]
 
@@ -375,16 +416,12 @@ def evaluate(dataTest, dataTrain):
 
 # %%
 # This function should calculate the Information Gain of an attribute or a set of attribute, with respect to the class
-def info_gain():
-    return
-
+def info_gain(classifications):
+    return classifications.calculateInfoGain()
 
 
 # %%
-import os
-import random
-
-def splitFiles(trainPercentage, filepath):
+def prepFiles(filepath):
     f = open(filepath, 'r')
     files = []
     length = 0
@@ -393,32 +430,42 @@ def splitFiles(trainPercentage, filepath):
         length += 1
 
     f.close()
-    trainLength = int(length * trainPercentage)
-    
-    random.shuffle(files)
-
-    return files[:trainLength], files[trainLength:]
+    return files
 
 
-path = 'C:\\Users\\novan\\OneDrive\\Desktop\\CODE\\NaiveBayesPrediction\\2019S1-proj1-data_dos\\'
-files = []
-for (dirpath, dirnames, filenames) in os.walk(path):
-    for filename in filenames:
-        if filename.endswith('.csv'):
-            files.append(dirpath + filename)
+# path = 'C:\\Users\\novan\\OneDrive\\Desktop\\CODE\\NaiveBayesPrediction\\2019S1-proj1-data_dos\\'
+# path = 'S1-proj1-data/'
+
+def collectFiles(mainDir):
+    files = []
+    for (dirpath, dirnames, filenames) in os.walk(mainDir):
+        for filename in filenames:
+            if filename.endswith('.csv'):
+                files.append(dirpath + filename)
+    return files
+
 
 f = "test.txt"
-trainPercentage = 0.8
-data = []
-print(len(files))
+trainPercentage = 1
+files = collectFiles(
+    "/Users/novan/Desktop/CODE/Machine Learning/assignment1/2019S1-proj1-data/")
+# files.append(
+#     'ary-tumor.csv')
+# print(len(files))
+# print("[\n")
 for fp in files:
-    trainData, testData = splitFiles(trainPercentage, fp)
-    # classifications = preprocess(trainData)
-    print(fp)
-    # classifications.printClassifications()
-
-    print("Score: " + str(float(evaluate(testData, trainData))))
-
+    data = prepFiles(fp)
+    # print(fp)
+    # print(float(evaluate(testData, trainData)))
+    classifications = preprocess(data, data)
+    # print("{ \"filepath\": \"" + fp + "\",\n")
+    # print(" \"info_gain\": " + str(info_gain(classifications)) + "},\n")
+    print("Filepath: " + fp)
+    print("Score: ", float(evaluate(data, data)))
+    print("Info Gain: ", info_gain(classifications))
+    print("\n")
+    # print("Score: " + str(float(evaluate(testData, trainData))))
+# print("\n]")
 # primary-tumor.csv has its class ordered, that's why files are shuffled
 
 # %% [markdown]
@@ -432,3 +479,188 @@ for fp in files:
 #  6. Naive Bayes is said to elegantly handle missing attribute values. For the datasets with missing values, is there any evidence that the performance is different on the instances with missing values, compared to the instances where all of the values are present? Does it matter which, or how many values are missing? Would a imputation strategy have any effect on this?
 #
 #  Don't forget that groups of 1 student should respond to question (1), and one other question of your choosing. Groups of 2 students should respond to question (1) and question (2), and two other questions of your choosing. Your responses should be about 150-250 words each.
+
+# %% [markdown]
+# Scores (Using training data as test data)
+
+# Filename: hypothyroid.csv
+# Score:  0.9516282010749288
+# Info Gain:  [0.004628873031652547, 0.0009139351160850073, 0.0012382074503017315, 0.00014844815831743796, 0.0009985293906336068, 0.0013683791752741592, 0.0005423006444424394, 0.0004350938464638965, 0.0004888757691284829, 0.0008983004044028076, 4.463778824304043e-05, 7.8684698479492e-05, 0.009353710215580346, 0.004075493419623766, 0.005792553705846859, 0.005768288201614624, 0.005744031245602799, 0.002580427555574416]
+
+
+# Filename: primary-tumor.csv
+# Score:  0.4365781710914454
+# Info Gain:  [0.1547421418870596, 0.33536005150555503, 1.0262234265467285, 2.0947714990558133, 0.21246189904816637, 0.0203669388480483, 0.10088123982399111, 0.0678727757044233, 0.22052193470670511, 0.1997614363902529, 0.06714460241010656, 0.06025390884525317, 0.29153013602249356, 0.12715354518198252, 0.2458886814337724, 0.18425767171538476, 0.17014811083887338]
+
+
+# Filename: hepatitis.csv
+# Score:  0.832258064516129
+# Info Gain:  [0.03660746514280977, 0.015265380561918285, 0.014490701150154384, 0.08645063847884216, 0.08322845589007444, 0.013806029835453981, 0.0903522944652434, 0.09049078626122975, 0.058739302370822144, 0.12938741279822152, 0.15163520023638288, 0.10012174391687245, 0.08493296456638777]
+
+
+# Filename: anneal.csv
+# Score:  0.8129175946547884
+# Info Gain:  [0.40908953764451006, 0.0, 0.3060515354289405, 0.051344088764404106, 0.29108220585994726, 0.1471188622809556, 0.2137228803159087, 0.29223544065798446, 0.1261663361036096, 0.14107379163812883, 0.032488406491841815, 0.43517783626288575, 0.03870173274881061, 0.00043760652021185287, 0.03935557414283708, 0.021775078259213876, 0.037997478813511565, 0.03670308136440825, 0.0, 0.11722522630372034, 0.029753745208638938, 0.02704235332867677, 0.0, 0.015604780443500665, 0.13718113252042574, 0.0, 0.0223970898516459, 0.01824168402125048, 0.0, 0.0, 0.0, 0.04323960556514961, 0.03303757117705719, 0.01937886432831948, 0.003958783545891853]
+
+
+# Filename: cmc.csv
+# Score:  0.5057705363204344
+# Info Gain:  [0.07090633894894594, 0.04013859922938412, 0.10173991727554088, 0.009820501434384843, 0.002582332379721608, 0.030474214560266555, 0.032511460053806784, 0.015786455595620197]
+
+
+# Filename: car.csv
+# Score:  0.8738425925925926
+# Info Gain:  [0.09644896916961399, 0.07370394692148596, 0.004485716626632108, 0.2196629633399082, 0.030008141247605424, 0.26218435655426386]
+
+
+# Filename: breast-cancer.csv
+# Score:  0.7587412587412588
+# Info Gain:  [0.010605956535614136, 0.0020016149737116518, 0.05717112532429669, 0.06899508808988597, 0.08012009687900967, 0.07700985251661441, 0.0024889884332655043, 0.015066622054149992, 0.025819023909141148]
+
+
+# Filename: nursery.csv
+# Score:  0.9026234567901235
+# Info Gain:  [0.07293460750309988, 0.1964492804881155, 0.005572591715219843, 0.011886431475775838, 0.019602025022871672, 0.0043331270252002785, 0.022232616894018342, 0.9587749604699762]
+
+
+# Filename: mushroom.csv
+# Score:  0.9587641555883801
+# Info Gain:  [0.04879670193537311, 0.028590232773772817, 0.03604928297620391, 0.19237948576121966, 0.9060749773839998, 0.014165027250616302, 0.10088318399657026, 0.23015437514804615, 0.41697752341613137, 0.007516772569664321, 0.4001378247172982, 0.2847255992184845, 0.2718944733927464, 0.2538451734622399, 0.24141556652756657, 0.0, 0.0238170161209168, 0.03845266924309054, 0.3180215107935376, 0.4807049176849154, 0.2019580190668524, 0.1568336046050921]
+#
+#
+#
+
+# %% [markdown]
+# ## Number 1
+#  Yes, it can. Information Gain is a way to measure how important an attribute
+#  is to make predictions based on a set of data. The high value of an attribute's Information Gain means the attribute affects the class of an instance more. In the
+#  given datasets, it can be seen that, if a classifier has more attributes with
+#  relatively high Information Gain, the classifier tends to be more accurate.
+#  However, there are outliers such as the hypothyroid.csv and
+#  primary-tumor.csv.
+
+#  In the hypothyroid.csv, Information Gain of each attribute is relatively low, and it should make the classifier less accurate. But, the accuracy is relatively high. This can be explained due to the high count of "negative" cases of hypothyroid in the dataset. This makes the classifier tend to predict "negative" which is true in most of the data. Due to this, Information Gain affects classifier prediction less.
+
+#  In the primary-tumor.csv, the Information Gain of several attributes are relatively high, and with such values, the classifier should be able to make more accurate predictions. However, the accuracy is, in fact, the lowest. This is due to the high count of missing values in the dataset. Due to this, the value of Information Gain can be high as the missing values make the Mean Information smaller. This also makes it harder for the classifier to predict as the high count of missing values contributes to the problem of lack of data. Hence, the low accuracy.
+
+
+
+
+# %%
+# Holdout implementation for question number 4
+def holdout(trainPercentage, filepath):
+    f = open(filepath, 'r')
+    files = []
+    length = 0
+    for line in f.readlines():
+        files.append(line.split(','))
+        length += 1
+
+    f.close()
+    if trainPercentage == 1:
+        return files, files
+
+    trainLength = int(length * trainPercentage)
+
+    random.shuffle(files)
+
+    return files[:trainLength], files[trainLength:]
+
+
+files = collectFiles(
+    "/Users/novan/Desktop/CODE/Machine Learning/assignment1/2019S1-proj1-data/")
+trainPercentage = 0.5
+for fp in files:
+    trainData, testData = holdout(trainPercentage, fp)
+    print("Filepath: ", fp)
+    print("Score: ", float(evaluate(testData, trainData)))
+    print("\n")
+
+# %% [markdown]
+# Using Holdout 80% as training data
+# Filename: hypothyroid.csv
+# Score:  0.957345971563981
+# Higher by 0.6%
+
+# Filename: primary-tumor.csv
+# Score:  0.3088235294117647
+# Lower by 13%
+
+# Filename: hepatitis.csv
+# Score:  0.8387096774193549
+# Higher by 6%
+
+# Filename: anneal.csv
+# Score:  0.7722222222222223
+# Lower by 4%
+
+# Filename: cmc.csv
+# Score:  0.46779661016949153
+# Lower by 4%
+
+# Filename: car.csv
+# Score:  0.8323699421965318
+# Lower by 4%
+
+# Filename: breast-cancer.csv
+# Score:  0.7931034482758621
+# Higher by 4%
+
+# Filename: nursery.csv
+# Score:  0.9012345679012346
+# Lower by 0.1%
+
+# Filename: mushroom.csv
+# Score:  0.9587692307692308
+# Very close
+
+# %% [markdown]
+# Score with Holdout 50-50
+# Filename: hypothyroid.csv
+# Score:  0.9494310998735778
+# Lower by 0.2%
+
+# Filename: primary-tumor.csv
+# Score:  0.2823529411764706
+# Lower by 15%
+
+# Filename: hepatitis.csv
+# Score:  0.8333333333333334
+# Higher by 0.1%
+
+# Filename: anneal.csv
+# Score:  0.8106904231625836
+# Lower by 0.2%
+
+# Filename: cmc.csv
+# Score:  0.49525101763907736
+# Lower by 1%
+
+# Filename: car.csv
+# Score:  0.8460648148148148
+# Lower by 3%
+
+# Filename: breast-cancer.csv
+# Score:  0.7622377622377622
+# Higher by 1%
+
+# Filename: nursery.csv
+# Score:  0.8976851851851851
+# Lower by 1%
+
+# Filename: mushroom.csv
+# Score:  0.9455933037912359
+# Lower by 1%
+# %% [markdown]
+# ## Number 4
+# The holdout implementation takes in a percentage of data, in this case
+#  80 % - 20 % and 50 % - 50 % of training data - test data. The data is shuffled
+#  so that each instance is randomly assigned as either training data or
+#  test data.
+
+#  By splitting the data into training data and testing data, it is expected
+# that the scores by implementing holdout evaluation would be lower than the test that uses training data as testing data. In this case, by comparing each score, it can be concluded that the expectation was correct. Most of the accuracy score tend to be lower than the score with the classifier that uses all data for training and testing. Some of the differences are small,
+#  with only 0.1 % to 1 % of difference, but there are classifiers that implement
+#  holdout with an even lower score, even as low as 15 % (the primary-tumor.csv 50-50). There are of course some cases where the classifier scores higher,
+#  but the number of cases is smaller than the lower score cases. The difference is relatively insignificant. The most significant one would be the
+#  80-20 hepatitis.csv classifier with the difference of 6 % with the classifier that uses all of the data as training data. This might be due to the lack of data which influence the probability calculations.
