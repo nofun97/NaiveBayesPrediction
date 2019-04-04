@@ -203,28 +203,35 @@ class Classifications:
     def calculateAttrValueEntropy(self, attrIndex, attrType):
         entropy = 0
         totalAttrType = self.calculateTotalFreqAttrType(attrIndex, attrType)
+
+        # ignoring attribute with zero frequency
         if totalAttrType == 0:
             return 0
 
+        # calculating for each classification
         for c in self.getClassificationTypes():
             freq = self.getAttributeDataIf(c, attrIndex).getFrequency(attrType)
             if freq == 0:
                 continue
+
+            # frequency of a class divided by total attribute type frequency
             valFreqRatio = Fraction(freq, totalAttrType)
             entropy += valFreqRatio * log(valFreqRatio, 2)
-        
+
         return -1 * entropy
 
     def calculateMeanInfo(self, attrIndex):
         globalAttr = self.getGlobalAttributeData(attrIndex)
-
         totalFreq = self.getTotalNumber()
         meanInfo = 0
+
+        # calculating for each value of an attribute
         for t in globalAttr.getValues():
             freq = self.calculateTotalFreqAttrType(attrIndex, t)
+
+            # frequency of an attribute type divided by total number of data
             freqRatio = Fraction(freq, totalFreq)
-            entropy = self.calculateAttrValueEntropy(
-                attrIndex, t)
+            entropy = self.calculateAttrValueEntropy(attrIndex, t)
             meanInfo += freqRatio * entropy
 
         return meanInfo
@@ -232,17 +239,15 @@ class Classifications:
     def calculateInfoGain(self):
         infoGain = []
         classEntropy = self.calculateClassEntropy()
-        # print("Class Entropy: ", classEntropy)
+
+        # for each attribute, calculate information gain
         for i in range(self.getNumberOfAttributes()):
             mi = self.calculateMeanInfo(i)
-            # print("Mean Info: ", mi)
             infoGain.append(classEntropy - mi)
         return infoGain
 
 # %%
 # This function should open a data file in csv, and transform it into a usable format
-# def preprocess(filepath):
-
 
 def preprocess(datas, totalData):
     classifications = None
@@ -280,7 +285,6 @@ class Learner:
 
         # Stores the probability of each types of attribute given a type of
         # classification
-        # Map<classification, [numOfAttr]List<Map<attributeType, Fraction>>>
         self.attrProbabilityIf = {}
 
     def learn(self, classification):
@@ -300,10 +304,6 @@ class Learner:
             self.attrProbabilityIf[t] = data
 
     def getProbabilityIf(self, classification, attr, val):
-        # print("Classification: ", classification)
-        # print("Attribute: ", attr)
-        # print("Type: ", val)
-
         # returning a neutral value for a missing values
         if val == '?':
             return 1
@@ -381,8 +381,6 @@ class Learner:
             dict[k] = (1 + freq, numOfValues + totalFreq)
 
         return dict
-
-
 # %%
 # This function should build a supervised NB model
 def train(classifications):
@@ -390,8 +388,6 @@ def train(classifications):
     learner.learn(classifications)
 
     return learner
-
-
 # %%
 # This function should predict the class for an instance or a set of instances, based on a trained model
 def predict(attributes, learner, classifications):
@@ -418,10 +414,11 @@ def evaluate(dataTest, dataTrain):
 # This function should calculate the Information Gain of an attribute or a set of attribute, with respect to the class
 def info_gain(classifications):
     return classifications.calculateInfoGain()
-
-
 # %%
+# script to run evaluation on all the datasets
+
 def prepFiles(filepath):
+    # creates a list of instances from a file
     f = open(filepath, 'r')
     files = []
     length = 0
@@ -433,10 +430,8 @@ def prepFiles(filepath):
     return files
 
 
-# path = 'C:\\Users\\novan\\OneDrive\\Desktop\\CODE\\NaiveBayesPrediction\\2019S1-proj1-data_dos\\'
-# path = 'S1-proj1-data/'
-
 def collectFiles(mainDir):
+    # walk through directory and get all the csv files
     files = []
     for (dirpath, dirnames, filenames) in os.walk(mainDir):
         for filename in filenames:
@@ -444,29 +439,18 @@ def collectFiles(mainDir):
                 files.append(dirpath + filename)
     return files
 
-
-f = "test.txt"
-trainPercentage = 1
+# getting the filepaths in a directory
 files = collectFiles(
-    "/Users/novan/Desktop/CODE/Machine Learning/assignment1/2019S1-proj1-data/")
-# files.append(
-#     'ary-tumor.csv')
-# print(len(files))
-# print("[\n")
+    "/Users/novan/Desktop/CODE/Machine Learning/assignment1/2019S1-proj1-data/"
+    )
 for fp in files:
+    # printing the filepath, scores, and info gain for each file
     data = prepFiles(fp)
-    # print(fp)
-    # print(float(evaluate(testData, trainData)))
     classifications = preprocess(data, data)
-    # print("{ \"filepath\": \"" + fp + "\",\n")
-    # print(" \"info_gain\": " + str(info_gain(classifications)) + "},\n")
     print("Filepath: " + fp)
     print("Score: ", float(evaluate(data, data)))
     print("Info Gain: ", info_gain(classifications))
     print("\n")
-    # print("Score: " + str(float(evaluate(testData, trainData))))
-# print("\n]")
-# primary-tumor.csv has its class ordered, that's why files are shuffled
 
 # %% [markdown]
 #  Questions (you may respond in a cell or cells below):
@@ -526,9 +510,7 @@ for fp in files:
 # Filename: mushroom.csv
 # Score:  0.9587641555883801
 # Info Gain:  [0.04879670193537311, 0.028590232773772817, 0.03604928297620391, 0.19237948576121966, 0.9060749773839998, 0.014165027250616302, 0.10088318399657026, 0.23015437514804615, 0.41697752341613137, 0.007516772569664321, 0.4001378247172982, 0.2847255992184845, 0.2718944733927464, 0.2538451734622399, 0.24141556652756657, 0.0, 0.0238170161209168, 0.03845266924309054, 0.3180215107935376, 0.4807049176849154, 0.2019580190668524, 0.1568336046050921]
-#
-#
-#
+
 
 # %% [markdown]
 # ## Number 1
@@ -542,34 +524,34 @@ for fp in files:
 #  In the hypothyroid.csv, Information Gain of each attribute is relatively low, and it should make the classifier less accurate. But, the accuracy is relatively high. This can be explained due to the high count of "negative" cases of hypothyroid in the dataset. This makes the classifier tend to predict "negative" which is true in most of the data. Due to this, Information Gain affects classifier prediction less.
 
 #  In the primary-tumor.csv, the Information Gain of several attributes are relatively high, and with such values, the classifier should be able to make more accurate predictions. However, the accuracy is, in fact, the lowest. This is due to the high count of missing values in the dataset. Due to this, the value of Information Gain can be high as the missing values make the Mean Information smaller. This also makes it harder for the classifier to predict as the high count of missing values contributes to the problem of lack of data. Hence, the low accuracy.
-
-
-
-
 # %%
 # Holdout implementation for question number 4
 def holdout(trainPercentage, filepath):
-    f = open(filepath, 'r')
-    files = []
-    length = 0
-    for line in f.readlines():
-        files.append(line.split(','))
-        length += 1
+    files = prepFiles(filepath)
 
-    f.close()
+    # if asked for all data, return the same data as the test data and train
+    # data
     if trainPercentage == 1:
         return files, files
 
-    trainLength = int(length * trainPercentage)
+    # getting the number of training data
+    trainLength = int(len(files) * trainPercentage)
 
+    # shuffling the files so that each instance is randomly assigned as either
+    # training data or test data
     random.shuffle(files)
 
     return files[:trainLength], files[trainLength:]
 
-
+# grab all the filepaths in the directory
 files = collectFiles(
-    "/Users/novan/Desktop/CODE/Machine Learning/assignment1/2019S1-proj1-data/")
+    "/Users/novan/Desktop/CODE/Machine Learning/assignment1/2019S1-proj1-data/"
+    )
+
+# train percentage to determine the percentage of training data
 trainPercentage = 0.5
+
+# split and evaluate data, then print the necessary data
 for fp in files:
     trainData, testData = holdout(trainPercentage, fp)
     print("Filepath: ", fp)
